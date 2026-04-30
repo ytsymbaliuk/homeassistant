@@ -1,0 +1,166 @@
+blueprint:
+  name: iOS Sleep Data Receiver
+  description: >-
+    Corrected version: Now handles "Tomorrow Only" disables by correctly
+    populating the skip_alarm helper instead of ignoring the off-state.
+  domain: script
+  input:
+    next_alarm:
+      name: Next alarm input
+      selector:
+        entity:
+          filter:
+            - domain: input_datetime
+    skip_alarm:
+      name: Skip alarm input
+      selector:
+        entity:
+          filter:
+            - domain: input_datetime
+    dayname_monday:
+      name: Monday name
+      default: Monday
+    dayname_tuesday:
+      name: Tuesday name
+      default: Tuesday
+    dayname_wednesday:
+      name: Wednesday name
+      default: Wednesday
+    dayname_thursday:
+      name: Thursday name
+      default: Thursday
+    dayname_friday:
+      name: Friday name
+      default: Friday
+    dayname_saturday:
+      name: Saturday name
+      default: Saturday
+    dayname_sunday:
+      name: Sunday name
+      default: Sunday
+
+sequence:
+  - variables:
+      mon: !input dayname_monday
+      tue: !input dayname_tuesday
+      wed: !input dayname_wednesday
+      thu: !input dayname_thursday
+      fri: !input dayname_friday
+      sat: !input dayname_saturday
+      sun: !input dayname_sunday
+  - variables:
+      templateResult: >
+        {# 1. TZ calculation #} {% set iosTZ = (IosNow |
+        as_datetime).strftime('%z') | int %} {% set iosMinutesTZ = iosTZ -
+        ((iosTZ / 100) | int) * 40 %} {% set haTZ = now().strftime('%z') | int
+        %} {% set haMinutesTZ = haTZ - ((haTZ / 100) | int) * 40 %} {% set
+        diffTZ = iosMinutesTZ - haMinutesTZ %}
+
+        {# 2. Build variables #} {% set alarmTimeStr = hours|string + ':' +
+        minutes|string %} {% set repeatDaysArray = (repeatDays2 +
+        repeatDays).split('\n') | map('trim') | map('lower') | reject('equalto',
+        '') | list %} {% set dayNamesDict = { 0: (sun|lower), 1: (mon|lower), 2:
+        (tue|lower), 3: (wed|lower), 4: (thu|lower), 5: (fri|lower), 6:
+        (sat|lower) } %}
+
+        {% set ns = namespace(
+          alarmDay = today_at(alarmTimeStr) + timedelta(minutes = diffTZ),
+          skippedOnce = false,
+          foundDay = false,
+          skippedAlarm = "2000-01-01T00:00:00" | as_datetime,
+        ) %}
+
+        {% if (ns.alarmDay < now()) %}
+          {% set ns.alarmDay = ns.alarmDay + timedelta(days = 1) %}
+        {% endif %}
+
+        {# 4. REVISED CATCH MECHANISM #} {# If no repeats, it's a 'Next Day
+        Only' change #} {% if not repeats or repeatDaysArray | length == 0 %}
+          {% if isEnabled %}
+            {% set ns.foundDay = true %}
+          {% else %}
+            {# If disabled for tomorrow, we mark it as skipped #}
+            {% set ns.skippedOnce = true %}
+            {% set ns.skippedAlarm = ns.alarmDay %}
+            {# We set alarmDay to 2000 so the next_alarm helper is cleared #}
+            {% set ns.alarmDay = "2000-01-01T00:00:00" | as_datetime %}
+          {% endif %}
+        {% endif %}
+
+        {# 5. Search loop (only runs if not already handled above) #} {% for _
+        in range(0, 8) %}
+          {% if (not ns.foundDay and not ns.skippedOnce) %}
+            {% set dayOfWeek = ns.alarmDay.strftime('%w') | int %}
+            {% set currentDayName = dayNamesDict[dayOfWeek] %}
+            {% if (currentDayName not in repeatDaysArray) %}
+              {% set ns.alarmDay = ns.alarmDay + timedelta(days = 1) %}
+            {% elif (not isEnabled) %}
+              {% set ns.skippedOnce = true %}
+              {% set ns.skippedAlarm = ns.alarmDay %}
+              {% set ns.alarmDay = ns.alarmDay + timedelta(days = 1) %}
+            {% else %}
+              {% set ns.foundDay = true %}
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+
+        {% if (not ns.foundDay and not ns.skippedOnce) %}
+          {% set ns.alarmDay = "2000-01-01T00:00:00" | as_datetime %}
+        {% endif %}
+
+        {{ns.foundDay}}@{{ns.alarmDay}}@{{ns.skippedAlarm}}@{{ns.skippedOnce}}
+
+  - variables:
+      foundDay: "{{ templateResult.split('@')[0] | lower == 'true' }}"
+      alarmDay: "{{ templateResult.split('@')[1] | as_datetime }}"
+      skippedAlarm: "{{ templateResult.split('@')[2] | as_datetime }}"
+      skippedOnce: "{{ templateResult.split('@')[3] | lower == 'true' }}"
+
+  - action: input_datetime.set_datetime
+    target:
+      entity_id: !input next_alarm
+    data:
+      datetime: "{{ alarmDay }}"
+
+  - action: input_datetime.set_datetime
+    target:
+      entity_id: !input skip_alarm
+    data:
+      datetime: "{{ skippedAlarm }}"
+
+mode: single
+fields:
+  repeats:
+    name: repeats
+    selector:
+      boolean: {}
+  isEnabled:
+    name: isEnabled
+    selector:
+      boolean: {}
+  hours:
+    name: hours
+    selector:
+      number:
+        min: 0
+        max: 23
+  minutes:
+    name: minutes
+    selector:
+      number:
+        min: 0
+        max: 59
+  repeatDays:
+    name: repeatDays
+    selector:
+      text:
+        multiline: true
+  IosNow:
+    name: IosNow
+    selector:
+      text: null
+  repeatDays2:
+    name: repeatDays2
+    selector:
+      text:
+        multiline: true
