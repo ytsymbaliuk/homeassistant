@@ -97,7 +97,8 @@ sequence:
             {% elif (not isEnabled) %}
               {% set ns.skippedOnce = true %}
               {% set ns.skippedAlarm = ns.alarmDay %}
-              {% set ns.alarmDay = ns.alarmDay + timedelta(days = 1) %}
+              {# When disabled, we clear the next_alarm helper #}
+              {% set ns.alarmDay = "2000-01-01T00:00:00" | as_datetime %}
             {% else %}
               {% set ns.foundDay = true %}
             {% endif %}
