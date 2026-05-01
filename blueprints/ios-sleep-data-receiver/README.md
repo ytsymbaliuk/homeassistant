@@ -14,7 +14,7 @@ Before setting up the script, you must create two helpers in Home Assistant (**S
 ### 2. Install the Blueprint & Script
 
 1.  **Import:** Click the badge below to import this blueprint to your instance:
-    [![Import Blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https://github.com/ytsymbaliuk/homeassistant/blob/main/blueprints/ios-sleep-data-receiver.yaml)
+    [![Import Blueprint](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https://raw.githubusercontent.com/ytsymbaliuk/homeassistant/main/blueprints/ios-sleep-data-receiver/ios-sleep-data-receiver.yaml](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https://raw.githubusercontent.com/ytsymbaliuk/homeassistant/main/blueprints/ios-sleep-data-receiver/ios-sleep-data-receiver.yaml)
 2.  **Create Script:** Go to **Settings > Automations & Scenes > Scripts** and create a new script from the blueprint.
 3.  **Configure:** Map the input entities to the helpers you created in Step 1.
 
